@@ -1,6 +1,8 @@
 import { HEADER, MAX_FRAME } from './uuids';
 import {
   MUSIC,
+  NAV_DATA,
+  NAV_OFF,
   NOTIF_ICON_RING,
   NOTIF_ICON_RING_OFF,
   NOTIF_STATE_LAST,
@@ -143,10 +145,154 @@ export function encodeMusicNext(): Uint8Array {
   return encodeFrame(OP.MUSIC_CTRL, new Uint8Array([0x80, MUSIC.NEXT]));
 }
 
+/** Watch TX: AB 00 05 FF 91 80 00 percent */
+export function encodeWatchBattery(percent: number): Uint8Array {
+  return encodeFrame(OP.BATTERY, new Uint8Array([0x80, 0x00, percent & 0xff]));
+}
+
 export function decodeWatchBattery(buf: Uint8Array): number | null {
   const h = decodeHeader(buf);
-  if (!h || h.opcode !== OP.BATTERY || h.payload.length < 2) {
+  if (!h || h.opcode !== OP.BATTERY) {
     return null;
   }
-  return h.payload[1];
+  if (h.type === 0xfe && h.payload.length >= 3) {
+    return null;
+  }
+  if (h.payload.length >= 3) {
+    return h.payload[2];
+  }
+  if (h.payload.length >= 2) {
+    return h.payload[1];
+  }
+  return null;
+}
+
+export function encodeHello(screen = 7): Uint8Array {
+  return new Uint8Array([
+    0xab, 0x00, 0x11, 0xff, 0x92, 0xc0, 1, 91, 0x00, 0xfb, 0x1e, 0x40, 0xc0, 0x0e, 0x32, 0x28,
+    0x00, 0xe2, screen & 0xff, 0x80,
+  ]);
+}
+
+export function decodeHelloScreen(buf: Uint8Array): number | null {
+  const h = decodeHeader(buf);
+  if (!h || h.opcode !== OP.HELLO || buf.length < 19) {
+    return null;
+  }
+  return buf[18];
+}
+
+export function timeFromDate(d = new Date()): ChronosTime {
+  return {
+    year: d.getFullYear(),
+    month: d.getMonth() + 1,
+    day: d.getDate(),
+    hour: d.getHours(),
+    minute: d.getMinutes(),
+    second: d.getSeconds(),
+  };
+}
+
+export function decodeFindPhone(buf: Uint8Array): boolean | null {
+  const h = decodeHeader(buf);
+  if (!h || h.opcode !== OP.FIND_PHONE || h.payload.length < 2) {
+    return null;
+  }
+  return h.payload[1] === 0x01;
+}
+
+export type MusicAction = 'toggle' | 'play' | 'pause' | 'prev' | 'next' | 'volUp' | 'volDown' | 'mute';
+
+export function decodeMusic(buf: Uint8Array): MusicAction | null {
+  const h = decodeHeader(buf);
+  if (!h || h.payload.length < 2) {
+    return null;
+  }
+  const extra = h.payload[1];
+  if (h.opcode === OP.MUSIC_TOGGLE) {
+    if (extra === MUSIC.VOL_UP) {
+      return 'volUp';
+    }
+    if (extra === MUSIC.VOL_DOWN) {
+      return 'volDown';
+    }
+    if (extra === MUSIC.VOL_MUTE) {
+      return 'mute';
+    }
+    return 'toggle';
+  }
+  if (h.opcode === OP.MUSIC_CTRL) {
+    if (extra === MUSIC.PAUSE) {
+      return 'pause';
+    }
+    if (extra === MUSIC.PREV) {
+      return 'prev';
+    }
+    if (extra === MUSIC.NEXT) {
+      return 'next';
+    }
+    return 'play';
+  }
+  return null;
+}
+
+export function clipNotif(app: string, body: string): string {
+  const t = app.replace(/[:\n]/g, ' ').slice(0, 19);
+  const b = body.replace(/\n/g, ' ').slice(0, 31);
+  return `${t}:${b}`;
+}
+
+export function encodePhoneBattery(percent: number, charging: boolean): Uint8Array {
+  return encodeFrame(OP.BATTERY, new Uint8Array([0x00, charging ? 1 : 0, percent & 0xff]), 0xab, 0xfe);
+}
+
+export function encodeCameraReady(ready: boolean): Uint8Array {
+  return encodeFrame(OP.CAMERA, new Uint8Array([0x80, ready ? 1 : 0]));
+}
+
+export function encodeAlarmSlot(index: number, enabled: boolean, hour: number, minute: number, repeat = 0): Uint8Array {
+  return encodeFrame(
+    OP.ALARM,
+    new Uint8Array([0x80, index & 0xff, enabled ? 1 : 0, hour & 0xff, minute & 0xff, repeat & 0xff]),
+  );
+}
+
+export function encodeNavOff(): Uint8Array {
+  return encodeFrame(OP.NAV, new Uint8Array([NAV_OFF]), 0xab, 0xfe);
+}
+
+function cstr(s: string): Uint8Array {
+  const u = new TextEncoder().encode(s);
+  const o = new Uint8Array(u.length + 1);
+  o.set(u, 0);
+  return o;
+}
+
+export function encodeNavText(title: string, duration: string, distance: string, eta: string, directions: string, speed = ''): Uint8Array {
+  const head = new Uint8Array([NAV_DATA, 0, 1, 0, 0, 0, 0]);
+  const parts = [title, duration, distance, eta, directions, speed].map(cstr);
+  let n = head.length;
+  for (const p of parts) {
+    n += p.length;
+  }
+  const payload = new Uint8Array(n);
+  payload.set(head, 0);
+  let i = head.length;
+  for (const p of parts) {
+    payload.set(p, i);
+    i += p.length;
+  }
+  return encodeFrame(OP.NAV, payload, 0xab, 0xfe);
+}
+
+export function encodeQrLink(index: number, url: string): Uint8Array {
+  const text = new TextEncoder().encode(url);
+  const p = new Uint8Array(1 + text.length);
+  p[0] = index & 0xff;
+  p.set(text, 1);
+  return encodeFrame(OP.QR, p, 0xab, 0xff);
+}
+
+export function encodeQrDone(count: number): Uint8Array {
+  return encodeFrame(OP.QR, new Uint8Array([count & 0xff]), 0xab, 0xfe);
 }

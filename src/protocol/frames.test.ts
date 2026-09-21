@@ -2,15 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { FrameAssembler } from './assemble';
 import {
   decodeHeader,
+  decodeHelloScreen,
   decodeTime,
+  decodeWatchBattery,
   encodeFindPhone,
   encodeFindWatch,
   encodeFrame,
+  encodeHello,
   encodeMusicNext,
   encodeMusicPrev,
   encodeMusicToggle,
   encodeNotifLast,
+  encodePhoneBattery,
   encodeTime,
+  encodeWatchBattery,
 } from './frames';
 import { MUSIC, NOTIF_STATE_LAST, OP } from './opcodes';
 
@@ -86,5 +91,26 @@ describe('FrameAssembler', () => {
     const got = a.push(f.slice(6));
     expect(got).toHaveLength(1);
     expect([...got[0]]).toEqual([...f]);
+  });
+});
+
+describe('hello + watch battery (watch TX)', () => {
+  it('hello screen at byte 18', () => {
+    const f = encodeHello(18);
+    expect(f[4]).toBe(OP.HELLO);
+    expect(f.length).toBe(20);
+    expect(decodeHelloScreen(f)).toBe(18);
+  });
+
+  it('matches firmware extra_n=2 battery', () => {
+    const f = encodeWatchBattery(64);
+    expect([...f]).toEqual([0xab, 0x00, 0x05, 0xff, 0x91, 0x80, 0x00, 64]);
+    expect(decodeWatchBattery(f)).toBe(64);
+  });
+
+  it('does not treat phone battery FE as watch percent', () => {
+    const f = encodePhoneBattery(41, true);
+    expect(f[3]).toBe(0xfe);
+    expect(decodeWatchBattery(f)).toBeNull();
   });
 });

@@ -1,0 +1,194 @@
+import { FrameAssembler } from '../protocol/assemble';
+import {
+  clipNotif,
+  decodeFindPhone,
+  decodeHelloScreen,
+  decodeMusic,
+  decodeWatchBattery,
+  encodeAlarmSlot,
+  encodeCameraReady,
+  encodeFindPhone,
+  encodeFindWatch,
+  encodeHour12,
+  encodeNavOff,
+  encodeNavText,
+  encodeNotifLast,
+  encodePhoneBattery,
+  encodeQrDone,
+  encodeQrLink,
+  encodeRinger,
+  encodeTime,
+  timeFromDate,
+  type MusicAction,
+} from '../protocol/frames';
+import type { BleTransport, ScanHit } from '../ble/types';
+
+export type LinkState = 'idle' | 'scan' | 'link' | 'ready' | 'error';
+
+export type WatchSnap = {
+  state: LinkState;
+  devices: ScanHit[];
+  name: string;
+  rssi: number | null;
+  watchBat: number | null;
+  screen: number | null;
+  lastNotif: string;
+  findPhone: boolean;
+  lastMusic: MusicAction | null;
+  hour12: boolean;
+  error: string | null;
+  demo: boolean;
+};
+
+const emptySnap = (): WatchSnap => ({
+  state: 'idle',
+  devices: [],
+  name: '',
+  rssi: null,
+  watchBat: null,
+  screen: null,
+  lastNotif: '',
+  findPhone: false,
+  lastMusic: null,
+  hour12: false,
+  error: null,
+  demo: false,
+});
+
+export class WatchSession {
+  snap: WatchSnap = emptySnap();
+  private asm = new FrameAssembler();
+  private connectedId: string | null = null;
+  onChange: (s: WatchSnap) => void = () => {};
+
+  constructor(private readonly tx: BleTransport) {}
+
+  private bump(partial: Partial<WatchSnap>): void {
+    this.snap = { ...this.snap, ...partial };
+    this.onChange(this.snap);
+  }
+
+  private ingest(chunk: Uint8Array): void {
+    for (const frame of this.asm.push(chunk)) {
+      const screen = decodeHelloScreen(frame);
+      if (screen != null) {
+        this.bump({ state: 'ready', screen, error: null });
+      }
+      const bat = decodeWatchBattery(frame);
+      if (bat != null) {
+        this.bump({ watchBat: bat });
+      }
+      const fp = decodeFindPhone(frame);
+      if (fp != null) {
+        this.bump({ findPhone: fp });
+      }
+      const music = decodeMusic(frame);
+      if (music) {
+        this.bump({ lastMusic: music });
+      }
+    }
+  }
+
+  async scan(): Promise<void> {
+    this.bump({ state: 'scan', devices: [], error: null });
+    await this.tx.stopScan();
+    const found: ScanHit[] = [];
+    await this.tx.startScan((d) => {
+      const i = found.findIndex((x) => x.id === d.id);
+      if (i >= 0) {
+        found[i] = d;
+      } else {
+        found.push(d);
+      }
+      this.bump({ devices: [...found] });
+    });
+  }
+
+  async connect(id?: string): Promise<void> {
+    const hit = id
+      ? this.snap.devices.find((d) => d.id === id) ?? { id, name: 'RoundOS', rssi: null }
+      : this.snap.devices[0] ?? { id: 'fake-roundos', name: 'RoundOS', rssi: -42 };
+    this.asm.reset();
+    this.bump({
+      state: 'link',
+      name: hit.name,
+      rssi: hit.rssi,
+      error: null,
+      watchBat: null,
+      demo: hit.id.startsWith('fake'),
+    });
+    this.connectedId = hit.id;
+    try {
+      await this.tx.connect(
+        hit.id,
+        (c) => this.ingest(c),
+        () => {
+          this.connectedId = null;
+          this.bump({ state: 'idle', findPhone: false });
+        },
+      );
+      await this.syncTime();
+    } catch (e) {
+      this.bump({ state: 'error', error: e instanceof Error ? e.message : 'connect failed' });
+    }
+  }
+
+  async disconnect(): Promise<void> {
+    await this.tx.disconnect();
+    this.connectedId = null;
+    this.bump({ state: 'idle', findPhone: false });
+  }
+
+  async syncTime(d = new Date()): Promise<void> {
+    await this.tx.write(encodeTime(timeFromDate(d)));
+  }
+
+  async setHour12(on: boolean): Promise<void> {
+    this.bump({ hour12: on });
+    await this.tx.write(encodeHour12(on));
+  }
+
+  async sendNotif(app: string, body: string): Promise<void> {
+    const line = clipNotif(app, body);
+    this.bump({ lastNotif: line });
+    await this.tx.write(encodeNotifLast(line));
+  }
+
+  async ringer(on: boolean): Promise<void> {
+    await this.tx.write(encodeRinger(on));
+  }
+
+  async findWatch(): Promise<void> {
+    await this.tx.write(encodeFindWatch());
+  }
+
+  async cancelFindPhone(): Promise<void> {
+    await this.tx.write(encodeFindPhone(false));
+    this.bump({ findPhone: false });
+  }
+
+  async sendPhoneBattery(percent: number, charging: boolean): Promise<void> {
+    await this.tx.write(encodePhoneBattery(percent, charging));
+  }
+
+  async cameraReady(ready: boolean): Promise<void> {
+    await this.tx.write(encodeCameraReady(ready));
+  }
+
+  async sendAlarm(index: number, hour: number, minute: number, enabled = true): Promise<void> {
+    await this.tx.write(encodeAlarmSlot(index, enabled, hour, minute));
+  }
+
+  async sendNav(title: string, directions: string, distance = '', duration = ''): Promise<void> {
+    await this.tx.write(encodeNavText(title, duration, distance, '', directions));
+  }
+
+  async navOff(): Promise<void> {
+    await this.tx.write(encodeNavOff());
+  }
+
+  async sendQr(url: string): Promise<void> {
+    await this.tx.write(encodeQrLink(0, url));
+    await this.tx.write(encodeQrDone(1));
+  }
+}

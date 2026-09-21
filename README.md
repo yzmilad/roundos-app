@@ -1,15 +1,16 @@
 # RoundOS phone app
 
 Chronos-compatible companion for the Waveshare ESP32-S3-Touch-LCD-1.28 watch.
-Roadmap: `esp32-s3-touch-lcd-1.28/docs/COMPANION_APP.md` (M0–M5, then U1+).
+Roadmap: firmware repo `docs/COMPANION_APP.md`.
 
 Not the Play Store Chronos UI. BLE talks Nordic UART to advertised name `RoundOS`.
 
-## M0
+## Status
 
-- Expo SDK 57 + Router + TypeScript
-- `src/protocol/` encode/decode (no React Native)
-- Hello screen only — no live BLE yet
+- **M0–M5** protocol + `WatchSession` + FakeWatch UI: `npm test` (22 tests).
+- Web uses `FakeTransport` (no browser BLE). Open Metro web at `/`.
+- Native `BlePlxTransport` is ready; set `EXPO_PUBLIC_USE_FAKE=0` after an Android SDK/APK exists.
+- Watch firmware GATT is unchanged until U1.
 
 ```powershell
 cd ..\roundos-app
@@ -17,19 +18,20 @@ npm test
 npx expo start
 ```
 
-Android APK (dev client) after JDK 17 + Android SDK:
+Then `w` for web, or scan the QR with a **dev client** (not Expo Go) once Android SDK works.
+
+Android APK after JDK 17 + Android SDK:
 
 ```powershell
 .\scripts\env.ps1
+$env:EXPO_PUBLIC_USE_FAKE='0'
 npx expo run:android
 ```
 
-If `dl.google.com/android/repository` is blocked, install **Android Studio** (it uses a different CDN) or cloud-build:
+If `dl.google.com/android/repository` is blocked, install Android Studio on another network or:
 
 ```powershell
 npx eas-cli build -p android --profile development
 ```
 
 JDK 17 is Microsoft OpenJDK (`JAVA_HOME` = `C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot`).
-
-`react-native-ble-plx` is installed for M1; this phase does not scan.

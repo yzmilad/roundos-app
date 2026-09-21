@@ -1,10 +1,28 @@
-/** M1 will implement BlePlxTransport. M0 only types. */
-export type LinkState = 'idle' | 'scan' | 'link' | 'ready' | 'error';
+import { FrameAssembler } from '../protocol/assemble';
+import { decodeHeader } from '../protocol/frames';
 
-export type WatchSnap = {
-  state: LinkState;
+export type ScanHit = {
+  id: string;
   name: string;
   rssi: number | null;
-  watchBat: number | null;
-  error: string | null;
 };
+
+export interface BleTransport {
+  startScan(onDevice: (d: ScanHit) => void): Promise<void>;
+  stopScan(): Promise<void>;
+  connect(
+    id: string,
+    onData: (chunk: Uint8Array) => void,
+    onDisconnect: () => void,
+  ): Promise<void>;
+  write(data: Uint8Array): Promise<void>;
+  disconnect(): Promise<void>;
+}
+
+export function chunksToFrames(asm: FrameAssembler, chunk: Uint8Array) {
+  return asm.push(chunk);
+}
+
+export function opcodeOf(frame: Uint8Array): number | null {
+  return decodeHeader(frame)?.opcode ?? null;
+}

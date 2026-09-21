@@ -8,6 +8,7 @@ export default function Home() {
   const { session, tx } = snap;
   const [app, setApp] = useState('Telegram');
   const [body, setBody] = useState('hello RoundOS');
+  const [song, setSong] = useState('Song');
   const [qr, setQr] = useState('https://github.com/yzmilad');
   const [nav, setNav] = useState('Turn right onto Valiasr');
 
@@ -67,9 +68,27 @@ export default function Home() {
         ) : null}
       </Section>
 
-      <Section title="U3–U7 phone frames (watch firmware later)">
+      {snap.shutter ? (
+        <Text style={styles.warn}>Watch shutter — take a photo</Text>
+      ) : null}
+
+      <Section title="U1–U7 phone → watch">
+        <Btn label="U2 now playing Song 64%" onPress={() => void session.sendMusicInfo(song, 64)} />
+        <Field value={song} onChangeText={setSong} placeholder="song title" />
         <Btn label="U4 send phone battery 80%" onPress={() => void session.sendPhoneBattery(80, true)} />
         <Btn label="U3 camera ready" kind="muted" onPress={() => void session.cameraReady(true)} />
+        {tx ? (
+          <Btn
+            label="Simulate watch Snap"
+            kind="muted"
+            onPress={() => {
+              tx.simulateCapture();
+            }}
+          />
+        ) : null}
+        {snap.shutter ? (
+          <Btn label="Ack shutter" onPress={() => session.ackShutter()} />
+        ) : null}
         <Btn label="U7 alarm 07:30 slot 0" kind="muted" onPress={() => void session.sendAlarm(0, 7, 30)} />
         <Field value={nav} onChangeText={setNav} placeholder="nav instruction" />
         <Btn label="U5 send nav" onPress={() => void session.sendNav('500 m', nav, '0.5 km', '2 min')} />

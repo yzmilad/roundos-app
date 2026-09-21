@@ -5,21 +5,26 @@ import {
   encodeMusicToggle,
   encodeHello,
   encodeWatchBattery,
+  encodeCameraCapture,
   decodeHeader,
 } from '../protocol/frames';
-import { OP } from '../protocol/opcodes';
+import { assembleNotif } from '../protocol/inbox';
+import { MUSIC, OP } from '../protocol/opcodes';
 import type { BleTransport, ScanHit } from './types';
 
 export type FakeWatchState = {
   time: string | null;
   hour12: boolean | null;
   notif: string | null;
+  inbox: string[];
   findWatch: boolean;
   phoneBat: { percent: number; charging: boolean } | null;
   cameraReady: boolean | null;
   alarm: string | null;
   nav: boolean | null;
   qr: string[];
+  song: string | null;
+  vol: number | null;
 };
 
 export class FakeTransport implements BleTransport {
@@ -28,16 +33,20 @@ export class FakeTransport implements BleTransport {
     time: null,
     hour12: null,
     notif: null,
+    inbox: [],
     findWatch: false,
     phoneBat: null,
     cameraReady: null,
     alarm: null,
     nav: null,
     qr: [],
+    song: null,
+    vol: null,
   };
 
   batteryPercent = 87;
   screen = 7;
+  private pending = '';
   private onData: ((c: Uint8Array) => void) | null = null;
   private onDisc: (() => void) | null = null;
   connected = false;
@@ -76,8 +85,21 @@ export class FakeTransport implements BleTransport {
     if (h.opcode === OP.HOUR12 && data.length > 6) {
       this.watch.hour12 = data[6] !== 0;
     }
-    if (h.opcode === OP.NOTIF && data.length > 8 && data[7] === 0x02) {
-      this.watch.notif = new TextDecoder().decode(data.slice(8));
+    if (h.opcode === OP.NOTIF && data.length > 8) {
+      if (data[6] === 0x01 || data[6] === 0x02) {
+        return;
+      }
+      const chunk = new TextDecoder().decode(data.slice(8));
+      const next = assembleNotif(this.pending, data[7], chunk);
+      this.pending = next.pending;
+      if (next.commit != null) {
+        this.watch.notif = next.commit;
+        if (this.watch.inbox.length < 8) {
+          this.watch.inbox = [...this.watch.inbox, next.commit];
+        } else {
+          this.watch.inbox = [...this.watch.inbox.slice(1), next.commit];
+        }
+      }
     }
     if (h.opcode === OP.FIND_WATCH) {
       this.watch.findWatch = true;
@@ -96,6 +118,10 @@ export class FakeTransport implements BleTransport {
     }
     if (h.opcode === OP.QR && h.type === 0xff && data.length > 6) {
       this.watch.qr[data[5]] = new TextDecoder().decode(data.slice(6));
+    }
+    if (h.opcode === OP.MUSIC_TOGGLE && data.length > 8 && data[6] === MUSIC.INFO) {
+      this.watch.vol = data[7];
+      this.watch.song = new TextDecoder().decode(data.slice(8));
     }
   }
 
@@ -121,5 +147,9 @@ export class FakeTransport implements BleTransport {
 
   simulateMusicNext(): void {
     this.emit(encodeMusicNext());
+  }
+
+  simulateCapture(): void {
+    this.emit(encodeCameraCapture());
   }
 }

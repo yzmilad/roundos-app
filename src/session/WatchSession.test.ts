@@ -77,12 +77,26 @@ describe('M5 music', () => {
 });
 
 describe('U phone→watch frames', () => {
-  it('phone battery, camera, alarm, nav, qr', async () => {
+  it('U1 chunks assemble into inbox', async () => {
     const { tx, s } = await linked();
+    await s.sendNotifChunk('Tele', 0x00);
+    expect(tx.watch.notif).toBeNull();
+    await s.sendNotifChunk('gram:hi', 0x02);
+    expect(tx.watch.notif).toBe('Telegram:hi');
+    expect(tx.watch.inbox).toEqual(['Telegram:hi']);
+  });
+
+  it('U2–U7 music, battery, camera, alarm, nav, qr, shutter', async () => {
+    const { tx, s } = await linked();
+    await s.sendMusicInfo('Song', 64);
+    expect(tx.watch.song).toBe('Song');
+    expect(tx.watch.vol).toBe(64);
     await s.sendPhoneBattery(41, true);
     expect(tx.watch.phoneBat).toEqual({ percent: 41, charging: true });
     await s.cameraReady(true);
     expect(tx.watch.cameraReady).toBe(true);
+    tx.simulateCapture();
+    expect(s.snap.shutter).toBe(true);
     await s.sendAlarm(0, 7, 30);
     expect(tx.watch.alarm).toMatch(/7:30/);
     await s.sendNav('Turn right', 'Valiasr');

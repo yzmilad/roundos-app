@@ -5,13 +5,16 @@ import {
   decodeHelloScreen,
   decodeMusic,
   decodeWatchBattery,
+  decodeCameraReady,
   encodeAlarmSlot,
   encodeCameraReady,
   encodeFindPhone,
   encodeFindWatch,
   encodeHour12,
+  encodeMusicInfo,
   encodeNavOff,
   encodeNavText,
+  encodeNotif,
   encodeNotifLast,
   encodePhoneBattery,
   encodeQrDone,
@@ -36,6 +39,7 @@ export type WatchSnap = {
   findPhone: boolean;
   lastMusic: MusicAction | null;
   hour12: boolean;
+  shutter: boolean;
   error: string | null;
   demo: boolean;
 };
@@ -51,6 +55,7 @@ const emptySnap = (): WatchSnap => ({
   findPhone: false,
   lastMusic: null,
   hour12: false,
+  shutter: false,
   error: null,
   demo: false,
 });
@@ -85,6 +90,10 @@ export class WatchSession {
       const music = decodeMusic(frame);
       if (music) {
         this.bump({ lastMusic: music });
+      }
+      const cam = decodeCameraReady(frame);
+      if (cam) {
+        this.bump({ shutter: true });
       }
     }
   }
@@ -154,6 +163,10 @@ export class WatchSession {
     await this.tx.write(encodeNotifLast(line));
   }
 
+  async sendNotifChunk(text: string, state: number): Promise<void> {
+    await this.tx.write(encodeNotif(text, state));
+  }
+
   async ringer(on: boolean): Promise<void> {
     await this.tx.write(encodeRinger(on));
   }
@@ -190,5 +203,13 @@ export class WatchSession {
   async sendQr(url: string): Promise<void> {
     await this.tx.write(encodeQrLink(0, url));
     await this.tx.write(encodeQrDone(1));
+  }
+
+  async sendMusicInfo(title: string, vol: number): Promise<void> {
+    await this.tx.write(encodeMusicInfo(title, vol));
+  }
+
+  ackShutter(): void {
+    this.bump({ shutter: false });
   }
 }

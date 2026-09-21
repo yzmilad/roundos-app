@@ -105,14 +105,18 @@ export function decodeTime(buf: Uint8Array): ChronosTime | null {
   };
 }
 
-export function encodeNotifLast(titleAndBody: string, icon = 0x00): Uint8Array {
+export function encodeNotif(titleAndBody: string, state = NOTIF_STATE_LAST, icon = 0x00): Uint8Array {
   const text = new TextEncoder().encode(titleAndBody);
   const p = new Uint8Array(3 + text.length);
   p[0] = 0x80;
   p[1] = u8(icon);
-  p[2] = NOTIF_STATE_LAST;
+  p[2] = u8(state);
   p.set(text, 3);
   return encodeFrame(OP.NOTIF, p);
+}
+
+export function encodeNotifLast(titleAndBody: string, icon = 0x00): Uint8Array {
+  return encodeNotif(titleAndBody, NOTIF_STATE_LAST, icon);
 }
 
 export function encodeRinger(on: boolean): Uint8Array {
@@ -210,6 +214,9 @@ export function decodeMusic(buf: Uint8Array): MusicAction | null {
   }
   const extra = h.payload[1];
   if (h.opcode === OP.MUSIC_TOGGLE) {
+    if (extra === MUSIC.INFO || extra === MUSIC.VOL_SET) {
+      return null;
+    }
     if (extra === MUSIC.VOL_UP) {
       return 'volUp';
     }
@@ -295,4 +302,116 @@ export function encodeQrLink(index: number, url: string): Uint8Array {
 
 export function encodeQrDone(count: number): Uint8Array {
   return encodeFrame(OP.QR, new Uint8Array([count & 0xff]), 0xab, 0xfe);
+}
+
+export function encodeMusicInfo(title: string, vol: number): Uint8Array {
+  const text = new TextEncoder().encode(title.slice(0, 23));
+  const p = new Uint8Array(3 + text.length);
+  p[0] = 0x80;
+  p[1] = MUSIC.INFO;
+  p[2] = vol & 0xff;
+  p.set(text, 3);
+  return encodeFrame(OP.MUSIC_TOGGLE, p);
+}
+
+export function encodeCameraCapture(): Uint8Array {
+  return encodeFrame(OP.CAMERA, new Uint8Array([0x80, 1]));
+}
+
+function readCstr(buf: Uint8Array, i: number): { s: string; next: number } {
+  const start = i;
+  while (i < buf.length && buf[i] !== 0) {
+    i += 1;
+  }
+  const s = new TextDecoder().decode(buf.slice(start, i));
+  if (i < buf.length && buf[i] === 0) {
+    i += 1;
+  }
+  return { s, next: i };
+}
+
+export function decodePhoneBattery(buf: Uint8Array): { percent: number; charging: boolean } | null {
+  const h = decodeHeader(buf);
+  if (!h || h.opcode !== OP.BATTERY || h.type !== 0xfe || buf.length < 8) {
+    return null;
+  }
+  return { charging: buf[6] === 1, percent: buf[7] };
+}
+
+export function decodeCameraReady(buf: Uint8Array): boolean | null {
+  const h = decodeHeader(buf);
+  if (!h || h.opcode !== OP.CAMERA || buf.length < 7) {
+    return null;
+  }
+  return buf[6] === 1;
+}
+
+export function decodeAlarmSlot(buf: Uint8Array): {
+  index: number;
+  enabled: boolean;
+  hour: number;
+  minute: number;
+  repeat: number;
+} | null {
+  const h = decodeHeader(buf);
+  if (!h || h.opcode !== OP.ALARM || buf.length < 11) {
+    return null;
+  }
+  return { index: buf[6], enabled: buf[7] !== 0, hour: buf[8], minute: buf[9], repeat: buf[10] };
+}
+
+export function decodeMusicInfo(buf: Uint8Array): { title: string; vol: number } | null {
+  const h = decodeHeader(buf);
+  if (!h || h.opcode !== OP.MUSIC_TOGGLE || h.payload.length < 3 || h.payload[1] !== MUSIC.INFO) {
+    return null;
+  }
+  return { vol: h.payload[2], title: new TextDecoder().decode(h.payload.slice(3)) };
+}
+
+export function decodeNav(buf: Uint8Array): {
+  active: boolean;
+  title: string;
+  duration: string;
+  distance: string;
+  directions: string;
+} | null {
+  const h = decodeHeader(buf);
+  if (!h || h.opcode !== OP.NAV || h.type !== 0xfe || buf.length < 6) {
+    return null;
+  }
+  if (buf[5] === NAV_OFF) {
+    return { active: false, title: '', duration: '', distance: '', directions: '' };
+  }
+  if (buf[5] !== NAV_DATA || buf.length <= 12) {
+    return { active: true, title: '', duration: '', distance: '', directions: '' };
+  }
+  let i = 12;
+  const title = readCstr(buf, i);
+  const duration = readCstr(buf, title.next);
+  const distance = readCstr(buf, duration.next);
+  const eta = readCstr(buf, distance.next);
+  const directions = readCstr(buf, eta.next);
+  return {
+    active: true,
+    title: title.s,
+    duration: duration.s,
+    distance: distance.s,
+    directions: directions.s,
+  };
+}
+
+export function decodeQrLink(buf: Uint8Array): { index: number; url: string } | null {
+  const h = decodeHeader(buf);
+  if (!h || h.opcode !== OP.QR || h.type !== 0xff || buf.length < 6) {
+    return null;
+  }
+  return { index: buf[5], url: new TextDecoder().decode(buf.slice(6, h.total)) };
+}
+
+export function decodeQrDone(buf: Uint8Array): number | null {
+  const h = decodeHeader(buf);
+  if (!h || h.opcode !== OP.QR || h.type !== 0xfe || buf.length < 6) {
+    return null;
+  }
+  return buf[5];
 }

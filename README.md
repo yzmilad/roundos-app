@@ -7,7 +7,8 @@ Not the Play Store Chronos UI. BLE talks Nordic UART to advertised name `RoundOS
 
 ## Status
 
-- **M0–M5** protocol + `WatchSession` + FakeWatch UI: `npm test` (22 tests).
+- **M0–M5 + U1–U7** protocol + FakeWatch UI: `npm test` (31 tests).
+- Watch firmware **1.3.0** parses the same frames (Inbox/Cam/Nav/Link on the watch).
 - Web uses `FakeTransport` (no browser BLE). Open Metro web at `/`.
 - Native `BlePlxTransport` is ready; set `EXPO_PUBLIC_USE_FAKE=0` after an Android SDK/APK exists.
 - Watch firmware GATT is unchanged until U1.

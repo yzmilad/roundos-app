@@ -22,10 +22,15 @@ export const MUSIC = {
   PAUSE: 0x01,
   PREV: 0x02,
   NEXT: 0x03,
+  VOL_SET: 0xa0,
   VOL_UP: 0xa1,
   VOL_DOWN: 0xa2,
   VOL_MUTE: 0xa3,
+  INFO: 0xaa,
 } as const;
+
+export const NOTIF_STATE_FIRST = 0x00;
+export const NOTIF_STATE_MID = 0x01;
 
 export const NOTIF_STATE_LAST = 0x02;
 export const NOTIF_ICON_RING = 0x01;

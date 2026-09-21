@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { getBridge } from '../src/native/bridge';
 import { useWatch } from '../src/store';
 import { Btn, Field, RoundAction, Screen, Section, colors } from '../src/ui/kit';
 
@@ -8,10 +9,11 @@ export default function MusicScreen() {
   const { session } = snap;
   const [song, setSong] = useState('Song');
   const [vol, setVol] = useState(64);
+  const bridge = getBridge();
 
-  const pushInfo = (v = vol) => {
+  const pushInfo = (v = vol, title = song) => {
     setVol(v);
-    void session.sendMusicInfo(song, v);
+    void session.sendMusicInfo(title, v);
   };
 
   return (
@@ -24,6 +26,20 @@ export default function MusicScreen() {
       <Section title="Now playing">
         <Field value={song} onChangeText={setSong} placeholder="track title" />
         <Btn label="Send to watch" onPress={() => pushInfo()} />
+        {bridge.present ? (
+          <Btn
+            label="From phone player"
+            kind="muted"
+            onPress={() => {
+              const m = bridge.mediaSnapshot();
+              if (!m?.title) {
+                return;
+              }
+              setSong(m.title);
+              pushInfo(m.vol, m.title);
+            }}
+          />
+        ) : null}
         <Text style={styles.vol}>Volume {vol}%</Text>
         <View style={styles.row}>
           <RoundAction label="−" sub="vol" onPress={() => pushInfo(Math.max(0, vol - 8))} />

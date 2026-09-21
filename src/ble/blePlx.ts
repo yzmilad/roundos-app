@@ -35,7 +35,10 @@ export class BlePlxTransport implements BleTransport {
         return;
       }
       const name = dev.name || dev.localName || '';
-      onDevice({ id: dev.id, name: name || '(no name)', rssi: dev.rssi });
+      if (name && name !== 'RoundOS' && !name.includes('RoundOS')) {
+        return;
+      }
+      onDevice({ id: dev.id, name: name || 'RoundOS', rssi: dev.rssi });
     });
   }
 

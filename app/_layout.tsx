@@ -1,12 +1,15 @@
+import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Text } from 'react-native';
+import { bindCompanion } from '../src/companionHost';
 
 function TabIcon({ glyph, color }: { glyph: string; color: string }) {
   return <Text style={{ color, fontSize: 18 }}>{glyph}</Text>;
 }
 
 export default function Layout() {
+  useEffect(() => bindCompanion(), []);
   return (
     <>
       <StatusBar style="light" />
@@ -51,6 +54,14 @@ export default function Layout() {
             tabBarIcon: ({ color }) => <TabIcon glyph="⌘" color={color} />,
           }}
         />
+        <Tabs.Screen
+          name="more"
+          options={{
+            title: 'More',
+            tabBarIcon: ({ color }) => <TabIcon glyph="⚙" color={color} />,
+          }}
+        />
+        <Tabs.Screen name="camera" options={{ href: null }} />
       </Tabs>
     </>
   );

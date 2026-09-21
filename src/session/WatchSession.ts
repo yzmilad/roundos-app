@@ -24,6 +24,8 @@ import {
   timeFromDate,
   type MusicAction,
 } from '../protocol/frames';
+import { applyMusic, type MediaHost } from '../features/music/apply';
+import { appLabel, shouldForward, type IncomingNotif } from '../features/notifications/filter';
 import type { BleTransport, ScanHit } from '../ble/types';
 
 export type LinkState = 'idle' | 'scan' | 'link' | 'ready' | 'error';
@@ -62,9 +64,16 @@ const emptySnap = (): WatchSnap => ({
 
 export class WatchSession {
   snap: WatchSnap = emptySnap();
+  mediaHost: MediaHost | null = null;
+  findHost: { start(): void; stop(): void } | null = null;
+  allowlist: Set<string> | null = null;
   private asm = new FrameAssembler();
   private connectedId: string | null = null;
   onChange: (s: WatchSnap) => void = () => {};
+
+  get deviceId(): string | null {
+    return this.connectedId;
+  }
 
   constructor(private readonly tx: BleTransport) {}
 
@@ -84,12 +93,20 @@ export class WatchSession {
         this.bump({ watchBat: bat });
       }
       const fp = decodeFindPhone(frame);
-      if (fp != null) {
+      if (fp != null && fp !== this.snap.findPhone) {
         this.bump({ findPhone: fp });
+        if (fp) {
+          this.findHost?.start();
+        } else {
+          this.findHost?.stop();
+        }
       }
       const music = decodeMusic(frame);
       if (music) {
         this.bump({ lastMusic: music });
+        if (this.mediaHost) {
+          applyMusic(this.mediaHost, music);
+        }
       }
       const cam = decodeCameraReady(frame);
       if (cam) {
@@ -133,6 +150,7 @@ export class WatchSession {
         (c) => this.ingest(c),
         () => {
           this.connectedId = null;
+          this.findHost?.stop();
           this.bump({ state: 'idle', findPhone: false });
         },
       );
@@ -143,6 +161,7 @@ export class WatchSession {
   }
 
   async disconnect(): Promise<void> {
+    this.findHost?.stop();
     await this.tx.disconnect();
     this.connectedId = null;
     this.bump({ state: 'idle', findPhone: false });
@@ -177,7 +196,17 @@ export class WatchSession {
 
   async cancelFindPhone(): Promise<void> {
     await this.tx.write(encodeFindPhone(false));
+    this.findHost?.stop();
     this.bump({ findPhone: false });
+  }
+
+  async forwardIncoming(n: IncomingNotif): Promise<boolean> {
+    const allow = this.allowlist && this.allowlist.size > 0 ? this.allowlist : null;
+    if (!shouldForward(n, allow)) {
+      return false;
+    }
+    await this.sendNotif(appLabel(n), n.text || n.title);
+    return true;
   }
 
   async sendPhoneBattery(percent: number, charging: boolean): Promise<void> {

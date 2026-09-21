@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
+import { router } from 'expo-router';
+import { watchNav } from '../src/native/nav';
 import { useWatch } from '../src/store';
 import { Btn, Field, Screen, Section, colors } from '../src/ui/kit';
 
@@ -8,6 +10,8 @@ export default function ToolsScreen() {
   const { session, tx } = snap;
   const [qr, setQr] = useState('https://github.com/yzmilad');
   const [nav, setNav] = useState('Turn right onto Valiasr');
+  const [gps, setGps] = useState(false);
+  const stopGps = useRef<(() => void) | null>(null);
 
   return (
     <Screen>
@@ -16,8 +20,11 @@ export default function ToolsScreen() {
 
       <Section title="Camera">
         <Btn
-          label={snap.shutter ? 'Shutter received' : 'Camera ready'}
-          onPress={() => void session.cameraReady(true)}
+          label="Open camera"
+          onPress={() => {
+            void session.cameraReady(true);
+            router.push('/camera');
+          }}
         />
         {snap.shutter ? <Btn label="Clear shutter" kind="muted" onPress={() => session.ackShutter()} /> : null}
       </Section>
@@ -25,6 +32,24 @@ export default function ToolsScreen() {
       <Section title="Navigation">
         <Field value={nav} onChangeText={setNav} placeholder="instruction" />
         <Btn label="Send turn" onPress={() => void session.sendNav('500 m', nav, '0.5 km', '2 min')} />
+        <Btn
+          label={gps ? 'Stop GPS share' : 'Share GPS'}
+          kind="muted"
+          onPress={() => {
+            if (gps) {
+              stopGps.current?.();
+              stopGps.current = null;
+              setGps(false);
+              void session.navOff();
+              return;
+            }
+            setGps(true);
+            stopGps.current = watchNav((n) => {
+              setNav(n.directions);
+              void session.sendNav(n.title, n.directions, n.distance, '');
+            });
+          }}
+        />
         <Btn label="End navigation" kind="muted" onPress={() => void session.navOff()} />
       </Section>
 

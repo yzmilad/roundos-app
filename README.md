@@ -3,14 +3,13 @@
 Chronos-compatible companion for the Waveshare ESP32-S3-Touch-LCD-1.28 watch.
 Roadmap: firmware repo `docs/COMPANION_APP.md`.
 
-Chronos-like companion shell (Watch / Alerts / Music / Tools), RoundOS colors — not a Play Store pixel clone. BLE talks Nordic UART to advertised name `RoundOS`.
+Chronos-like companion shell (Watch / Alerts / Music / Tools / More), RoundOS colors — not a Play Store pixel clone. BLE talks Nordic UART to advertised name `RoundOS`. Local watch apps (Calc, Weather Wi‑Fi, Notes, …) stay on the watch.
 
 ## Status
 
-- **M0–M5 + U1–U7** protocol + Chronos-like companion tabs: `npm test`.
-- Watch firmware **1.3.0** parses the same frames (Inbox/Cam/Nav/Link on the watch).
-- Web uses `FakeTransport` (no browser BLE). Open Metro web at `/`.
-- Native `BlePlxTransport` is ready; set `EXPO_PUBLIC_USE_FAKE=0` after an Android SDK/APK exists.
+- **M0–M5 + U1–U7 + Track D** (persist, battery, find vibrate, notif/media native module, camera, GPS nav, keep-alive): `npm test`.
+- Watch firmware **1.3.0** parses the same frames.
+- Web uses `FakeTransport`. Native Android needs a filled SDK (`platforms` + `build-tools`) then `EXPO_PUBLIC_USE_FAKE=0`.
 
 ```powershell
 cd ..\roundos-app

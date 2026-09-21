@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { getBridge } from '../src/native/bridge';
 import { useWatch } from '../src/store';
 import { Btn, Field, Screen, Section, colors } from '../src/ui/kit';
 
@@ -8,11 +9,18 @@ export default function AlertsScreen() {
   const { session, rememberNotif } = snap;
   const [app, setApp] = useState('Telegram');
   const [body, setBody] = useState('hello RoundOS');
+  const bridge = getBridge();
 
   return (
     <Screen>
       <Text style={styles.title}>Notifications</Text>
-      <Text style={styles.sub}>Forward a preview to the watch inbox</Text>
+      <Text style={styles.sub}>
+        {bridge.present
+          ? snap.notifAccess
+            ? 'Forwarding phone alerts to the watch'
+            : 'Enable notification access in More'
+          : 'Send a preview, or build the Android APK for auto-forward'}
+      </Text>
 
       <Section title="Send">
         <Field value={app} onChangeText={setApp} placeholder="app" />

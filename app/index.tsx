@@ -6,15 +6,14 @@ import { WatchFace } from '../src/ui/WatchFace';
 
 export default function WatchScreen() {
   const snap = useWatch();
-  const { session } = snap;
+  const { session, patchPrefs } = snap;
   const linked = snap.state === 'ready';
 
   useEffect(() => {
-    if (!linked) {
-      return;
+    if (snap.prefs.hour12 !== snap.hour12 && linked) {
+      void session.setHour12(snap.prefs.hour12);
     }
-    void session.sendPhoneBattery(82, false);
-  }, [linked, session]);
+  }, [linked, session, snap.hour12, snap.prefs.hour12]);
 
   return (
     <Screen>
@@ -22,6 +21,7 @@ export default function WatchScreen() {
       <Text style={styles.sub}>
         {linked ? 'Connected' : snap.state === 'scan' ? 'Scanning…' : snap.state === 'link' ? 'Linking…' : 'Companion'}
         {snap.demo ? ' · demo' : ''}
+        {snap.phoneBat != null ? ` · phone ${snap.phoneBat}%` : ''}
       </Text>
       {snap.error ? <Text style={styles.err}>{snap.error}</Text> : null}
 
@@ -47,7 +47,11 @@ export default function WatchScreen() {
         <RoundAction
           label={snap.hour12 ? '12h' : '24h'}
           sub="clock"
-          onPress={() => void session.setHour12(!snap.hour12)}
+          onPress={() => {
+            const next = !snap.hour12;
+            void session.setHour12(next);
+            patchPrefs({ hour12: next });
+          }}
         />
       </View>
 

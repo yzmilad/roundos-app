@@ -14,7 +14,8 @@
       "react-native-ble-plx",
       "expo-camera",
       "expo-location",
-      "roundos-bridge"
+      "roundos-bridge",
+      "./plugins/withReleaseDebugSigning.js"
     ],
     "ios": {
       "supportsTablet": true,

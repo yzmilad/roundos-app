@@ -9,7 +9,7 @@ Chronos-like companion shell (Watch / Alerts / Music / Tools / More), RoundOS co
 
 - **M0–M5 + U1–U7 + Track D** (persist, battery, find vibrate, notif/media native module, camera, GPS nav, keep-alive): `npm test`.
 - Watch firmware **1.3.0** parses the same frames.
-- Web uses `FakeTransport`. Native Android needs a filled SDK (`platforms` + `build-tools`) then `EXPO_PUBLIC_USE_FAKE=0`.
+- Web uses `FakeTransport`. Android APK bakes `EXPO_PUBLIC_USE_FAKE=0` (real `ble-plx`) via GitHub Actions **android-apk**.
 
 ```powershell
 cd ..\roundos-app
@@ -17,20 +17,20 @@ npm test
 npx expo start
 ```
 
-Then `w` for web, or scan the QR with a **dev client** (not Expo Go) once Android SDK works.
+Then `w` for FakeWatch in the browser. Do not use Expo Go for BLE.
 
-Android APK after JDK 17 + Android SDK:
+Install the APK: GitHub → Actions → **android-apk** → artifact **RoundOS**, or:
+
+```powershell
+gh run download -R yzmilad/roundos-app -n RoundOS
+```
+
+On the watch: **RoundOS 1.3.0**, Settings → Phone On (not HID). On the phone: install APK, Bluetooth + location, Connect RoundOS.
+
+If `dl.google.com` works on another PC:
 
 ```powershell
 .\scripts\env.ps1
 $env:EXPO_PUBLIC_USE_FAKE='0'
 npx expo run:android
 ```
-
-If `dl.google.com/android/repository` is blocked, install Android Studio on another network or:
-
-```powershell
-npx eas-cli build -p android --profile development
-```
-
-JDK 17 is Microsoft OpenJDK (`JAVA_HOME` = `C:\Program Files\Microsoft\jdk-17.0.20.101-hotspot`).

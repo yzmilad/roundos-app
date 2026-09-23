@@ -1,0 +1,38 @@
+name: android-apk
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_USE_FAKE: "0"
+      EXPO_NO_TELEMETRY: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Install JS
+        run: npm ci
+      - name: Prebuild Android
+        run: npx expo prebuild --platform android --non-interactive --no-install
+      - name: Assemble release APK
+        working-directory: android
+        run: chmod +x gradlew && ./gradlew :app:assembleRelease --no-daemon
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: RoundOS
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error

@@ -19,7 +19,7 @@ npx expo start
 
 Then `w` for FakeWatch in the browser. Do not use Expo Go for BLE.
 
-Install the APK: [companion-1.0.0](https://github.com/yzmilad/roundos-app/releases/tag/companion-1.0.0) (`app-release.apk`), or Actions artifact **RoundOS**.
+Install the APK: [companion-1.1.0](https://github.com/yzmilad/roundos-app/releases/tag/companion-1.1.0) (`app-release.apk`), or Actions artifact **RoundOS**.
 
 ```powershell
 gh run download -R yzmilad/roundos-app -n RoundOS

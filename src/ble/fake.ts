@@ -6,11 +6,14 @@ import {
   encodeHello,
   encodeWatchBattery,
   encodeCameraCapture,
+  encodeSyncPut,
   decodeHeader,
+  decodeSync,
 } from '../protocol/frames';
 import { assembleNotif } from '../protocol/inbox';
-import { MUSIC, OP } from '../protocol/opcodes';
+import { MUSIC, OP, SYNC, SYNC_OP } from '../protocol/opcodes';
 import type { BleTransport, ScanHit } from './types';
+import { applySyncPut, emptyAppSync, type AppSync } from '../session/WatchSession';
 
 export type FakeWatchState = {
   time: string | null;
@@ -25,6 +28,7 @@ export type FakeWatchState = {
   qr: string[];
   song: string | null;
   vol: number | null;
+  apps: AppSync;
 };
 
 export class FakeTransport implements BleTransport {
@@ -42,6 +46,14 @@ export class FakeTransport implements BleTransport {
     qr: [],
     song: null,
     vol: null,
+    apps: {
+      notes: ['', '', '', '', '', ''],
+      wxCity: 'Tehran',
+      rssUrl: 'https://en.irna.ir/rss',
+      prayer: '35.69,51.39',
+      world: ['Tehran', 'UTC', 'New York'],
+      cal: ['', '', '', '', '', '', '', ''],
+    },
   };
 
   batteryPercent = 87;
@@ -123,6 +135,20 @@ export class FakeTransport implements BleTransport {
       this.watch.vol = data[7];
       this.watch.song = new TextDecoder().decode(data.slice(8));
     }
+    if (h.opcode === OP.SYNC) {
+      const s = decodeSync(data);
+      if (!s) {
+        return;
+      }
+      if (s.op === SYNC_OP.SET) {
+        this.watch.apps = applySyncPut(this.watch.apps, s.kind, s.index, s.text);
+        this.emit(encodeSyncPut(s.kind, s.index, s.text));
+        return;
+      }
+      if (s.op === SYNC_OP.GET) {
+        this.dumpApps(s.kind, s.index);
+      }
+    }
   }
 
   async disconnect(): Promise<void> {
@@ -151,5 +177,42 @@ export class FakeTransport implements BleTransport {
 
   simulateCapture(): void {
     this.emit(encodeCameraCapture());
+  }
+
+  private dumpApps(kind: number, index: number): void {
+    const kinds = kind === SYNC.ALL ? [SYNC.NOTE, SYNC.WX, SYNC.RSS, SYNC.PRAYER, SYNC.WORLD, SYNC.CAL] : [kind];
+    for (const k of kinds) {
+      const n = k === SYNC.NOTE ? 6 : k === SYNC.WORLD ? 3 : k === SYNC.CAL ? 8 : 1;
+      if (index !== SYNC.ALL && kind !== SYNC.ALL) {
+        this.emit(encodeSyncPut(k, index, this.appText(k, index)));
+        continue;
+      }
+      for (let i = 0; i < n; i++) {
+        this.emit(encodeSyncPut(k, i, this.appText(k, i)));
+      }
+    }
+  }
+
+  private appText(kind: number, index: number): string {
+    const a = this.watch.apps ?? emptyAppSync();
+    if (kind === SYNC.NOTE) {
+      return a.notes[index] ?? '';
+    }
+    if (kind === SYNC.WX) {
+      return a.wxCity;
+    }
+    if (kind === SYNC.RSS) {
+      return a.rssUrl;
+    }
+    if (kind === SYNC.PRAYER) {
+      return a.prayer;
+    }
+    if (kind === SYNC.WORLD) {
+      return a.world[index] ?? '';
+    }
+    if (kind === SYNC.CAL) {
+      return a.cal[index] ?? '';
+    }
+    return '';
   }
 }

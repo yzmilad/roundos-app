@@ -6,6 +6,7 @@ import {
   decodeMusic,
   decodeWatchBattery,
   decodeCameraReady,
+  decodeSync,
   encodeAlarmSlot,
   encodeCameraReady,
   encodeFindPhone,
@@ -20,15 +21,27 @@ import {
   encodeQrDone,
   encodeQrLink,
   encodeRinger,
+  encodeSyncGet,
+  encodeSyncSet,
   encodeTime,
   timeFromDate,
   type MusicAction,
 } from '../protocol/frames';
+import { SYNC, SYNC_OP } from '../protocol/opcodes';
 import { applyMusic, type MediaHost } from '../features/music/apply';
 import { appLabel, shouldForward, type IncomingNotif } from '../features/notifications/filter';
 import type { BleTransport, ScanHit } from '../ble/types';
 
 export type LinkState = 'idle' | 'scan' | 'link' | 'ready' | 'error';
+
+export type AppSync = {
+  notes: string[];
+  wxCity: string;
+  rssUrl: string;
+  prayer: string;
+  world: string[];
+  cal: string[];
+};
 
 export type WatchSnap = {
   state: LinkState;
@@ -44,7 +57,52 @@ export type WatchSnap = {
   shutter: boolean;
   error: string | null;
   demo: boolean;
+  apps: AppSync;
 };
+
+export function emptyAppSync(): AppSync {
+  return {
+    notes: ['', '', '', '', '', ''],
+    wxCity: '',
+    rssUrl: '',
+    prayer: '',
+    world: ['', '', ''],
+    cal: ['', '', '', '', '', '', '', ''],
+  };
+}
+
+function putSlot(arr: string[], n: number, i: number, text: string): string[] {
+  const out = arr.slice();
+  while (out.length < n) {
+    out.push('');
+  }
+  if (i >= 0 && i < n) {
+    out[i] = text;
+  }
+  return out;
+}
+
+export function applySyncPut(s: AppSync, kind: number, index: number, text: string): AppSync {
+  if (kind === SYNC.NOTE) {
+    return { ...s, notes: putSlot(s.notes, 6, index, text) };
+  }
+  if (kind === SYNC.WX) {
+    return { ...s, wxCity: text };
+  }
+  if (kind === SYNC.RSS) {
+    return { ...s, rssUrl: text };
+  }
+  if (kind === SYNC.PRAYER) {
+    return { ...s, prayer: text };
+  }
+  if (kind === SYNC.WORLD) {
+    return { ...s, world: putSlot(s.world, 3, index, text) };
+  }
+  if (kind === SYNC.CAL) {
+    return { ...s, cal: putSlot(s.cal, 8, index, text) };
+  }
+  return s;
+}
 
 const emptySnap = (): WatchSnap => ({
   state: 'idle',
@@ -60,6 +118,7 @@ const emptySnap = (): WatchSnap => ({
   shutter: false,
   error: null,
   demo: false,
+  apps: emptyAppSync(),
 });
 
 export class WatchSession {
@@ -112,6 +171,10 @@ export class WatchSession {
       if (cam) {
         this.bump({ shutter: true });
       }
+      const sync = decodeSync(frame);
+      if (sync && sync.op === SYNC_OP.PUT) {
+        this.bump({ apps: applySyncPut(this.snap.apps, sync.kind, sync.index, sync.text) });
+      }
     }
   }
 
@@ -155,6 +218,7 @@ export class WatchSession {
         },
       );
       await this.syncTime();
+      await this.pullApps();
     } catch (e) {
       this.bump({ state: 'error', error: e instanceof Error ? e.message : 'connect failed' });
     }
@@ -236,6 +300,14 @@ export class WatchSession {
 
   async sendMusicInfo(title: string, vol: number): Promise<void> {
     await this.tx.write(encodeMusicInfo(title, vol));
+  }
+
+  async sendApp(kind: number, index: number, text: string): Promise<void> {
+    await this.tx.write(encodeSyncSet(kind, index, text));
+  }
+
+  async pullApps(): Promise<void> {
+    await this.tx.write(encodeSyncGet(SYNC.ALL, 0));
   }
 
   ackShutter(): void {

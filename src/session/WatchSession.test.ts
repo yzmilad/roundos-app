@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FakeTransport } from '../ble/fake';
 import { decodeWatchBattery, encodeWatchBattery } from '../protocol/frames';
-import { OP } from '../protocol/opcodes';
+import { OP, SYNC } from '../protocol/opcodes';
 import { WatchSession } from './WatchSession';
 
 async function linked() {
@@ -105,5 +105,28 @@ describe('U phone→watch frames', () => {
     expect(tx.watch.nav).toBe(false);
     await s.sendQr('https://example.com');
     expect(tx.watch.qr[0]).toBe('https://example.com');
+  });
+});
+
+describe('app sync 0xB1', () => {
+  it('pulls watch apps after link and SET note/city/rss', async () => {
+    const { tx, s } = await linked();
+    expect(s.snap.apps.wxCity).toBe('Tehran');
+    expect(s.snap.apps.rssUrl).toContain('irna');
+    expect(s.snap.apps.world[0]).toBe('Tehran');
+    expect(tx.writes.some((w) => w[4] === OP.SYNC)).toBe(true);
+    await s.sendApp(SYNC.NOTE, 0, 'buy milk');
+    expect(tx.watch.apps.notes[0]).toBe('buy milk');
+    expect(s.snap.apps.notes[0]).toBe('buy milk');
+    await s.sendApp(SYNC.WX, 0, 'Shiraz');
+    expect(tx.watch.apps.wxCity).toBe('Shiraz');
+    await s.sendApp(SYNC.RSS, 0, 'https://www.tehrantimes.com/rss');
+    expect(tx.watch.apps.rssUrl).toContain('tehrantimes');
+    await s.sendApp(SYNC.PRAYER, 0, '32.65,51.68');
+    expect(tx.watch.apps.prayer).toBe('32.65,51.68');
+    await s.sendApp(SYNC.WORLD, 1, 'London');
+    expect(tx.watch.apps.world[1]).toBe('London');
+    await s.sendApp(SYNC.CAL, 0, '2026-09-23|meet');
+    expect(tx.watch.apps.cal[0]).toBe('2026-09-23|meet');
   });
 });

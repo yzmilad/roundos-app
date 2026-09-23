@@ -7,6 +7,9 @@ import {
   NOTIF_ICON_RING_OFF,
   NOTIF_STATE_LAST,
   OP,
+  SYNC,
+  SYNC_OP,
+  SYNC_TEXT_MAX,
 } from './opcodes';
 
 export type ChronosTime = {
@@ -414,4 +417,45 @@ export function decodeQrDone(buf: Uint8Array): number | null {
     return null;
   }
   return buf[5];
+}
+
+export function encodeSync(kind: number, op: number, index: number, text = ''): Uint8Array {
+  const raw = new TextEncoder().encode(text).slice(0, SYNC_TEXT_MAX);
+  const p = new Uint8Array(4 + raw.length);
+  p[0] = 0x80;
+  p[1] = u8(kind);
+  p[2] = u8(op);
+  p[3] = u8(index);
+  p.set(raw, 4);
+  return encodeFrame(OP.SYNC, p);
+}
+
+export function decodeSync(buf: Uint8Array): {
+  kind: number;
+  op: number;
+  index: number;
+  text: string;
+} | null {
+  const h = decodeHeader(buf);
+  if (!h || h.opcode !== OP.SYNC || h.payload.length < 4 || h.payload[0] !== 0x80) {
+    return null;
+  }
+  return {
+    kind: h.payload[1],
+    op: h.payload[2],
+    index: h.payload[3],
+    text: new TextDecoder().decode(h.payload.slice(4)),
+  };
+}
+
+export function encodeSyncSet(kind: number, index: number, text: string): Uint8Array {
+  return encodeSync(kind, SYNC_OP.SET, index, text);
+}
+
+export function encodeSyncGet(kind = SYNC.ALL, index = 0): Uint8Array {
+  return encodeSync(kind, SYNC_OP.GET, index);
+}
+
+export function encodeSyncPut(kind: number, index: number, text: string): Uint8Array {
+  return encodeSync(kind, SYNC_OP.PUT, index, text);
 }

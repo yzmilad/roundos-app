@@ -14,10 +14,13 @@ import {
   encodeMusicToggle,
   encodeNotifLast,
   encodePhoneBattery,
+  encodeSyncPut,
+  encodeSyncSet,
   encodeTime,
   encodeWatchBattery,
+  decodeSync,
 } from './frames';
-import { MUSIC, NOTIF_STATE_LAST, OP } from './opcodes';
+import { MUSIC, NOTIF_STATE_LAST, OP, SYNC, SYNC_OP } from './opcodes';
 
 describe('encodeFrame', () => {
   it('sets AB length type opcode', () => {
@@ -112,5 +115,15 @@ describe('hello + watch battery (watch TX)', () => {
     const f = encodePhoneBattery(41, true);
     expect(f[3]).toBe(0xfe);
     expect(decodeWatchBattery(f)).toBeNull();
+  });
+});
+
+describe('app sync 0xB1', () => {
+  it('SET note then GET dumps PUT', () => {
+    const f = encodeSyncSet(SYNC.NOTE, 2, 'buy milk');
+    expect(f[4]).toBe(OP.SYNC);
+    expect(decodeSync(f)).toEqual({ kind: SYNC.NOTE, op: SYNC_OP.SET, index: 2, text: 'buy milk' });
+    const p = encodeSyncPut(SYNC.WX, 0, 'Tehran');
+    expect(decodeSync(p)).toEqual({ kind: SYNC.WX, op: SYNC_OP.PUT, index: 0, text: 'Tehran' });
   });
 });

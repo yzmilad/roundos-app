@@ -12,6 +12,7 @@ export const OP = {
   MUSIC_TOGGLE: 0x99,
   MUSIC_CTRL: 0x9d,
   QR: 0xa8,
+  SYNC: 0xb1,
   NAV_ICON: 0xee,
   NAV: 0xef,
 } as const;
@@ -37,3 +38,46 @@ export const NOTIF_ICON_RING = 0x01;
 export const NOTIF_ICON_RING_OFF = 0x02;
 export const NAV_OFF = 0x00;
 export const NAV_DATA = 0x80;
+
+export const SYNC = {
+  NOTE: 1,
+  WX: 2,
+  RSS: 3,
+  PRAYER: 4,
+  WORLD: 5,
+  CAL: 6,
+  ALL: 0xff,
+} as const;
+
+export const SYNC_OP = {
+  SET: 0,
+  GET: 1,
+  PUT: 2,
+} as const;
+
+export const SYNC_TEXT_MAX = 79;
+
+export const RSS_FEEDS = [
+  { lab: 'IRNA', url: 'https://en.irna.ir/rss' },
+  { lab: 'TT', url: 'https://www.tehrantimes.com/rss' },
+] as const;
+
+export const WORLD_CITIES = [
+  'Tehran',
+  'Mashhad',
+  'Istanbul',
+  'Dubai',
+  'Moscow',
+  'London',
+  'Paris',
+  'Berlin',
+  'New York',
+  'Chicago',
+  'LA',
+  'Tokyo',
+  'Seoul',
+  'Beijing',
+  'Mumbai',
+  'Sydney',
+  'UTC',
+] as const;

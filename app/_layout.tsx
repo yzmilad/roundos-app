@@ -55,6 +55,13 @@ export default function Layout() {
           }}
         />
         <Tabs.Screen
+          name="apps"
+          options={{
+            title: 'Apps',
+            tabBarIcon: ({ color }) => <TabIcon glyph="☰" color={color} />,
+          }}
+        />
+        <Tabs.Screen
           name="more"
           options={{
             title: 'More',

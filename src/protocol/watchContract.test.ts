@@ -16,8 +16,10 @@ import {
   encodePhoneBattery,
   encodeQrDone,
   encodeQrLink,
+  encodeSyncSet,
+  decodeSync,
 } from './frames';
-import { MUSIC, NAV_DATA, NOTIF_STATE_FIRST, NOTIF_STATE_MID, OP } from './opcodes';
+import { MUSIC, NAV_DATA, NOTIF_STATE_FIRST, NOTIF_STATE_MID, OP, SYNC } from './opcodes';
 
 describe('U1 inbox', () => {
   it('assembles 0x00 then 0x02 and rings at 8', () => {
@@ -98,5 +100,13 @@ describe('U7 alarm', () => {
   it('index enabled hour minute at bytes 6-9', () => {
     const f = encodeAlarmSlot(0, true, 7, 30, 0x7f);
     expect(decodeAlarmSlot(f)).toEqual({ index: 0, enabled: true, hour: 7, minute: 30, repeat: 0x7f });
+  });
+});
+
+describe('app sync 0xB1', () => {
+  it('SET city payload is 80 kind SET index text', () => {
+    const f = encodeSyncSet(SYNC.WX, 0, 'Tehran');
+    expect(f[4]).toBe(OP.SYNC);
+    expect(decodeSync(f)).toEqual({ kind: SYNC.WX, op: 0, index: 0, text: 'Tehran' });
   });
 });

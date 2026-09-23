@@ -3,12 +3,12 @@
 Chronos-compatible companion for the Waveshare ESP32-S3-Touch-LCD-1.28 watch.
 Roadmap: firmware repo `docs/COMPANION_APP.md`.
 
-Chronos-like companion shell (Watch / Alerts / Music / Tools / More), RoundOS colors — not a Play Store pixel clone. BLE talks Nordic UART to advertised name `RoundOS`. Local watch apps (Calc, Weather Wi‑Fi, Notes, …) stay on the watch.
+Chronos-like companion shell (Watch / Alerts / Music / Tools / Apps / More), RoundOS colors — not a Play Store pixel clone. BLE talks Nordic UART to advertised name `RoundOS`. Tab **Apps** SET/GETs Notes, Weather city, RSS URL, prayer geo, world slots, and calendar notes over `0xB1`. Calc/Torch/Level/Dice/Timer have no settings. Do not send the OpenWeather key.
 
 ## Status
 
-- **M0–M5 + U1–U7 + Track D** (persist, battery, find vibrate, notif/media native module, camera, GPS nav, keep-alive): `npm test`.
-- Watch firmware **1.3.0** parses the same frames.
+- **M0–M5 + U1–U7 + Track D + Apps sync `0xB1`**: `npm test`.
+- Watch firmware **1.4.0** parses the same frames.
 - Web uses `FakeTransport`. Android APK bakes `EXPO_PUBLIC_USE_FAKE=0` (real `ble-plx`) via GitHub Actions **android-apk**.
 
 ```powershell
@@ -25,7 +25,7 @@ Install the APK: [companion-1.0.0](https://github.com/yzmilad/roundos-app/releas
 gh run download -R yzmilad/roundos-app -n RoundOS
 ```
 
-On the watch: **RoundOS 1.3.0**, Settings → Phone On (not HID). On the phone: install APK, Bluetooth + location, Connect RoundOS.
+On the watch: **RoundOS 1.4.0**, Settings → Phone On (not HID). On the phone: install APK, Bluetooth + location, Connect RoundOS. Tab **Apps** to push notes/city/RSS.
 
 If `dl.google.com` works on another PC:
 

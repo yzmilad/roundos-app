@@ -34,35 +34,38 @@ class RoundosBridgeModule : Module() {
     }
 
     Function("openNotifSettings") {
-      val c = ctx ?: return@Function
+      val c = ctx ?: return@Function null
       val i = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
       i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
       c.startActivity(i)
+      null
     }
 
     Function("startKeepAlive") {
-      val c = ctx ?: return@Function
+      val c = ctx ?: return@Function null
       val i = Intent(c, RoundosKeepAliveService::class.java)
       if (Build.VERSION.SDK_INT >= 26) {
         c.startForegroundService(i)
       } else {
         c.startService(i)
       }
+      null
     }
 
     Function("stopKeepAlive") {
-      val c = ctx ?: return@Function
+      val c = ctx ?: return@Function null
       c.stopService(Intent(c, RoundosKeepAliveService::class.java))
+      null
     }
 
     Function("mediaAction") { action: String ->
-      val c = ctx ?: return@Function
+      val c = ctx ?: return@Function null
       when (action) {
         "volUp" -> vol(c, AudioManager.ADJUST_RAISE)
         "volDown" -> vol(c, AudioManager.ADJUST_LOWER)
         "mute" -> vol(c, AudioManager.ADJUST_TOGGLE_MUTE)
         else -> {
-          val ctl = activeController(c) ?: return@Function
+          val ctl = activeController(c) ?: return@Function null
           val tc = ctl.transportControls
           when (action) {
             "play" -> tc.play()
@@ -76,6 +79,7 @@ class RoundosBridgeModule : Module() {
           }
         }
       }
+      null
     }
 
     Function("mediaSnapshot") {

@@ -60,7 +60,7 @@ export default function WatchScreen() {
       ) : (
         <Btn
           label="Connect RoundOS"
-          onPress={() => void session.scan().then(() => session.connect())}
+          onPress={() => void session.connectRoundOs()}
         />
       )}
 

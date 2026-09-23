@@ -26,6 +26,14 @@ describe('M1 link', () => {
     expect(s.snap.screen).toBe(7);
     expect(s.snap.watchBat).toBe(87);
   });
+
+  it('connectRoundOs links the fake watch', async () => {
+    const tx = new FakeTransport();
+    const s = new WatchSession(tx);
+    await s.connectRoundOs();
+    expect(s.snap.state).toBe('ready');
+    expect(s.snap.name).toBe('RoundOS');
+  });
 });
 
 describe('M2 time', () => {

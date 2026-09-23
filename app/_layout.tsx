@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bindCompanion } from '../src/companionHost';
 
 function TabIcon({ glyph, color }: { glyph: string; color: string }) {
@@ -9,21 +10,27 @@ function TabIcon({ glyph, color }: { glyph: string; color: string }) {
 }
 
 export default function Layout() {
+  const insets = useSafeAreaInsets();
+  const bottom = Math.max(insets.bottom, 8);
   useEffect(() => bindCompanion(), []);
   return (
     <>
       <StatusBar style="light" />
       <Tabs
+        safeAreaInsets={{ bottom: 0 }}
         screenOptions={{
           headerShown: false,
           tabBarStyle: {
             backgroundColor: '#070b10',
             borderTopColor: '#1c2433',
-            height: 58,
+            height: 52 + bottom,
+            paddingTop: 4,
+            paddingBottom: bottom,
           },
+          tabBarItemStyle: { paddingVertical: 0 },
           tabBarActiveTintColor: '#00d4ff',
           tabBarInactiveTintColor: '#7a8a99',
-          tabBarLabelStyle: { fontSize: 11, fontWeight: '700' },
+          tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
         }}
       >
         <Tabs.Screen

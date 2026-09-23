@@ -30,7 +30,9 @@ import {
 import { SYNC, SYNC_OP } from '../protocol/opcodes';
 import { applyMusic, type MediaHost } from '../features/music/apply';
 import { appLabel, shouldForward, type IncomingNotif } from '../features/notifications/filter';
+import { bleMessage } from '../ble/message';
 import type { BleTransport, ScanHit } from '../ble/types';
+import { isFakeTransport } from '../ble/createTransport';
 
 export type LinkState = 'idle' | 'scan' | 'link' | 'ready' | 'error';
 
@@ -193,10 +195,55 @@ export class WatchSession {
     });
   }
 
+  async connectRoundOs(): Promise<void> {
+    await this.scan();
+    let hit = this.snap.devices[0];
+    if (!hit && !isFakeTransport(this.tx)) {
+      hit = (await this.waitDevice(8000)) ?? undefined;
+    }
+    if (!hit) {
+      if (isFakeTransport(this.tx)) {
+        await this.connect();
+        return;
+      }
+      await this.tx.stopScan();
+      this.bump({
+        state: 'error',
+        error: 'RoundOS not found. On the watch open Settings → Phone On.',
+      });
+      return;
+    }
+    await this.connect(hit.id);
+  }
+
+  private waitDevice(ms: number): Promise<ScanHit | null> {
+    return new Promise((resolve) => {
+      const t0 = Date.now();
+      const timer = setInterval(() => {
+        const hit = this.snap.devices[0];
+        if (hit || Date.now() - t0 >= ms) {
+          clearInterval(timer);
+          resolve(hit ?? null);
+        }
+      }, 200);
+    });
+  }
+
   async connect(id?: string): Promise<void> {
     const hit = id
       ? this.snap.devices.find((d) => d.id === id) ?? { id, name: 'RoundOS', rssi: null }
-      : this.snap.devices[0] ?? { id: 'fake-roundos', name: 'RoundOS', rssi: -42 };
+      : this.snap.devices[0] ??
+        (isFakeTransport(this.tx) ? { id: 'fake-roundos', name: 'RoundOS', rssi: -42 } : null);
+    if (
+      !hit ||
+      (hit.id === 'fake-roundos' && !isFakeTransport(this.tx))
+    ) {
+      this.bump({
+        state: 'error',
+        error: 'RoundOS not found. On the watch open Settings → Phone On.',
+      });
+      return;
+    }
     this.asm.reset();
     this.bump({
       state: 'link',
@@ -217,10 +264,17 @@ export class WatchSession {
           this.bump({ state: 'idle', findPhone: false });
         },
       );
+    } catch (e) {
+      this.connectedId = null;
+      await this.tx.disconnect().catch(() => undefined);
+      this.bump({ state: 'error', error: bleMessage(e) });
+      return;
+    }
+    try {
       await this.syncTime();
       await this.pullApps();
     } catch (e) {
-      this.bump({ state: 'error', error: e instanceof Error ? e.message : 'connect failed' });
+      this.bump({ error: bleMessage(e) });
     }
   }
 

@@ -1,6 +1,30 @@
+import { PermissionsAndroid, Platform } from 'react-native';
 import { BleManager, State, type Device, type Subscription } from 'react-native-ble-plx';
 import type { BleTransport, ScanHit } from './types';
 import { NORDIC } from '../protocol/uuids';
+
+async function ensureBlePerms(): Promise<void> {
+  if (Platform.OS !== 'android') {
+    return;
+  }
+  const perms =
+    Platform.Version >= 31
+      ? [
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_SCAN,
+          PermissionsAndroid.PERMISSIONS.BLUETOOTH_CONNECT,
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        ]
+      : [PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION];
+  const res = await PermissionsAndroid.requestMultiple(perms);
+  const denied = perms.filter((p) => res[p] !== PermissionsAndroid.RESULTS.GRANTED);
+  if (denied.length) {
+    throw new Error('Bluetooth permission denied');
+  }
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function b64ToU8(b64: string): Uint8Array {
   const bin = atob(b64);
@@ -26,6 +50,7 @@ export class BlePlxTransport implements BleTransport {
   private mon: Subscription | null = null;
 
   async startScan(onDevice: (d: ScanHit) => void): Promise<void> {
+    await ensureBlePerms();
     const st = await this.mgr.state();
     if (st !== State.PoweredOn) {
       throw new Error(`bluetooth ${st}`);
@@ -52,7 +77,17 @@ export class BlePlxTransport implements BleTransport {
     onDisconnect: () => void,
   ): Promise<void> {
     await this.stopScan();
-    let d = await this.mgr.connectToDevice(id, { requestMTU: 185 });
+    await wait(400);
+    let d = await this.mgr.connectToDevice(id, {
+      autoConnect: false,
+      timeout: 12000,
+      refreshGatt: 'OnConnected',
+    });
+    try {
+      d = await d.requestMTU(185);
+    } catch {
+      /* 23-byte ATT still carries time and short settings frames */
+    }
     d = await d.discoverAllServicesAndCharacteristics();
     this.device = d;
     this.scanSub = d.onDisconnected(() => {
